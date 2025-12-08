@@ -31,6 +31,10 @@ void Scheduler::setTimeQuantum(int q) {
     timeQuantum = q;
 }
 
+void Scheduler::setAging(bool enabled) {
+    agingEnabled = enabled;
+}
+
 bool Scheduler::isFinished() const {
     return jobPool.empty() && readyQueue.empty() && cpu.empty();
 }
@@ -183,8 +187,20 @@ std::string Scheduler::tick() {
     }
     
     // Handling Priority Preemption? (Usually standard Priority is non-preemptive unless specified "Preemptive Priority")
-    // Prompt says "Priority". Usually implies non-preemptive unless specified.
-    // I will stick to Non-Preemptive for Priority unless CPU is empty.
+    // Prompt says "Preemptive Priority: If algorithm == 'Priority', check if any process in the readyQueue has a higher priority... preempt."
+    if (algorithm == "Priority" && !cpu.empty() && !readyQueue.empty()) {
+         auto highestPriorityInQueue = std::min_element(readyQueue.begin(), readyQueue.end(), 
+            [](const Process& a, const Process& b){
+                if (a.priority != b.priority) return a.priority < b.priority; // Lower val = Higher Priority
+                return a.id < b.id;
+            });
+            
+        // Check if queue process has strictly higher priority (lower value) than current CPU process
+        if (highestPriorityInQueue->priority < cpu[0].priority) {
+            log << "Process " << cpu[0].id << " preempted by " << highestPriorityInQueue->id << " (Priority " << highestPriorityInQueue->priority << " < " << cpu[0].priority << "). ";
+            preemptCPU(true); // To Back
+        }
+    }
     
     if (cpu.empty() && !readyQueue.empty()) {
         // Sort/Pick based on Algorithm
@@ -203,7 +219,7 @@ std::string Scheduler::tick() {
                 if (a.remainingTime != b.remainingTime) return a.remainingTime < b.remainingTime;
                 return a.id < b.id;
             });
-        } else if (algorithm == "Priority") {
+        } else if (algorithm == "Priority" || algorithm == "PriorityNP") {
             // Sort by Priority
             std::sort(readyQueue.begin(), readyQueue.end(), [](const Process& a, const Process& b){
                 if (a.priority != b.priority) return a.priority < b.priority;
@@ -254,6 +270,24 @@ std::string Scheduler::tick() {
     }
     
     currentTime++;
+    
+    // 5. Aging Logic (End of Tick)
+    // Apply to ALL algorithms if enabled (User request)
+    // "implement ageing to all the algorithms" implies we shouldn't restrict by name, 
+    // though valid only if priority matters.
+    if (agingEnabled && !readyQueue.empty()) {
+        for (auto &p : readyQueue) {
+            p.ageCounter++;
+            if (p.ageCounter >= 5) {
+                if (p.priority > 0) {
+                    p.priority--;
+                    log << " [Aging: Process " << p.id << " priority -> " << p.priority << "]";
+                }
+                p.ageCounter = 0;
+            }
+        }
+    }
+
     return log.str();
 }
 
@@ -275,7 +309,8 @@ nlohmann::json Scheduler::getStateJSON() const {
         j["ready_queue"].push_back({
             {"id", p.id},
             {"remaining", p.remainingTime},
-            {"priority", p.priority}
+            {"priority", p.priority},
+            {"age", p.ageCounter}
         });
     }
     

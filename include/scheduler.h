@@ -23,6 +23,9 @@ struct Process {
     int completionTime = -1;
     int waitingTime = 0;
     int turnaroundTime = 0;
+            
+    // Aging
+    int ageCounter = 0;
 };
 
 class Scheduler {
@@ -32,6 +35,7 @@ public:
     void addProcess(int id, std::string name, int arrivalTime, int burstTime, int priority);
     void setAlgorithm(std::string algo); 
     void setTimeQuantum(int q);
+    void setAging(bool enabled); // Re-added
     
     std::string tick();
 
@@ -40,6 +44,7 @@ public:
 
 private:
     std::string algorithm = "FCFS";
+    bool agingEnabled = true; // Default
     int timeQuantum = 2; 
     int currentTime = 0;
     
