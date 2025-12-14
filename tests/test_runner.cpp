@@ -66,10 +66,6 @@ int main() {
     // P3: Arr 2, Burst 1, Prio 3
     // P4: Arr 4, Burst 2, Prio 4
     std::vector<Process> set1;
-    // Note: We need to construct Process manually or simpler struct. 
-    // Since Process struct has many internal fields, let's just use addProcess inside helper?
-    // Or just create dummy Process objects.
-    // Let's make helper accept a struct of data.
     struct PData { int id; std::string name; int arr; int burst; int prio; };
     std::vector<PData> dataset1 = {
         {1, "P1", 0, 5, 2},
@@ -78,11 +74,10 @@ int main() {
         {4, "P4", 4, 2, 4}
     };
     
-    // Convert to Process vector
     std::vector<Process> pSet1;
     for (auto& d : dataset1) {
         Process p; p.id = d.id; p.name = d.name; p.arrivalTime = d.arr; p.burstTime = d.burst; p.priority = d.prio; 
-        p.remainingTime = d.burst; // Important init
+        p.remainingTime = d.burst; 
         pSet1.push_back(p);
     }
 

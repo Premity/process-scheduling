@@ -19,8 +19,6 @@ void Scheduler::addProcess(int id, std::string name, int arrivalTime, int burstT
     p.startTime = -1;
     // Pushing to jobPool, will be moved to readyQueue when arrivalTime <= currentTime
     jobPool.push_back(p);
-    // Sort logic for jobPool isn't strict, but we check every tick. 
-    // Optimization: Sort by arrival time? Or just iterate. Iteration is fine for small count.
 }
 
 void Scheduler::setAlgorithm(std::string algo) {
@@ -40,7 +38,7 @@ bool Scheduler::isFinished() const {
 }
 
 void Scheduler::checkArrivals() {
-    // Standard approach: Move all processes with arrivalTime <= currentTime from jobPool to readyQueue.
+    // Move all processes with arrivalTime <= currentTime from jobPool to readyQueue.
     // Order of arrival at same time: Usually defined by input order (FIFO).
     
     // Using a stable partition or just iterating safely.
@@ -56,18 +54,11 @@ void Scheduler::checkArrivals() {
     }
 }
 
-void Scheduler::preemptCPU(bool toBackOfQueue) {
+void Scheduler::preemptCPU() {
     if (!cpu.empty()) {
         Process p = cpu.front();
         cpu.clear();
-        if (toBackOfQueue) {
-            readyQueue.push_back(p);
-        } else {
-            // Put at front (for some theoretical preemption cases, or generic stack logic)
-            // But usually preemption means back of queue for RR.
-            // For SRTF, it goes back into pool, and we resort.
-            readyQueue.push_back(p);
-        }
+        readyQueue.push_back(p);
     }
 }
 
@@ -83,92 +74,28 @@ std::string Scheduler::tick() {
     
     if (algorithm == "RR" && !cpu.empty()) {
         currentQuantumUsed++;
+        
+        // Check for Quantum Expiry
         if (currentQuantumUsed >= timeQuantum) {
-            // Quantum expired.
-            // Check if process is finished?
-            // Actually, we check finish status typically after decrementing logic. 
-            // BUT wait, a tick represents "doing work". 
-            // So logic flow:
-            // Start of Tick -> Manage State (New Arrivals? Preemptions?) -> Do 1 unit of work -> End of Tick?
-            // OR: Do 1 unit of work (if CPU busy) -> Increment Time -> Check Events?
-            
-            // Standard Simulation Loop usually:
-            // 1. Check Arrivals (at CurrentTime)
-            // 2. Schedule/Select Process
-            // 3. Execute (update stats)
-            // 4. Increment Time
-            
-            // But prompt says: "advances time by 1 unit".
-            // So calling tick() means we ARE at `currentTime`, and we want to move to `currentTime + 1`.
-            
-            // Let's stick to the prompt's specific RR constraint: 
-            // "Quantum expires ... process goes to back ... before a process that just arrived"
-            // This implies the expiry happens at the interrupt level BEFORE the arrival interrupt handling?
-            // Or rather, the ordering in the queue is [Preempted, Arrived].
-            
-            // So, sequence:
-            // 1. Handle RR Expiry (if needed).
-            // 2. Handle Arrivals.
-            // 3. Select CPU.
-            
-            // Wait, if I expire logic creates a "Preempted" process, I push it to ReadyQueue.
-            // Then I check arrivals, and push "Arrived" to ReadyQueue.
-            // Since `push_back` appends, `Preempted` will be before `Arrived`. This matches the requirement.
-            
-            // BUT, strictly speaking, quantum check usually happens AFTER execution?
-            // Let's assume we are checking the state at the BEGINNING of the tick before work is done?
-            // No, `tick()` advances time. 
-            // Let's assume `tick()` covers the time interval [t, t+1).
-            
-            // Re-evaluating "Quantum Expired".
-            // If we just finished a quantum (runs 0..Q-1), we need to preempt.
-            // BUT, did it finish the quantum in the PREVIOUS tick?
-            // Current State: CPU has process, `currentQuantumUsed`.
-            // If `currentQuantumUsed == timeQuantum`, it means it ran for Q units already.
-            // So we should have preempted it at the end of previous tick? Or start of this one.
-            // Let's do it at start of this one.
-            
-            // Logically:
-            // Loop:
-            //   tick():
-            //     Manage Queues (Preempt, Arrive)
-            //     Run Process (Work--)
-            //     Time++
-            
-            if (currentQuantumUsed >= timeQuantum) {
-                 // Check if it finished? If remaining <= 0, it would have been removed already?
-                 // Let's ensure finish logic handles itself.
-                 if (cpu[0].remainingTime > 0) {
-                     log << "Process " << cpu[0].id << " quantum expired. ";
-                     preemptCPU(true); // To Back
-                     justPreemptedRR = true;
-                     currentQuantumUsed = 0;
-                 }
-            }
+             if (cpu[0].remainingTime > 0) {
+                 log << "Process " << cpu[0].id << " quantum expired. ";
+                 preemptCPU();
+                 justPreemptedRR = true;
+                 currentQuantumUsed = 0;
+             }
         }
     }
     
-    // 2. Check Arrivals
-    // Arrivals happen at `currentTime`.
-    checkArrivals(); // Pushes to back of readyQueue.
+    // 2. Check Arrivals (happens after RR expiry check to respect order constraints)
+    checkArrivals();
     
-    // If we just preempted RR, and a new process arrived, the order in ReadyQueue is:
-    // [Old Ready Queue Processes..., Preempted Process, New Arrivals...]
-    // Validating constraint: "process goes to the back... before a process that just arrived".
-    // My code:
-    //   preemptCPU() -> push_back(Preempted)
-    //   checkArrivals() -> push_back(Arrivals)
-    // Result: ... -> Preempted -> Arrivals.
-    // Yes, Preempted is "before" (ahead of? No, in standard Queue, "Back" is end).
-    // "Goes to the back ... before a process that just arrived."
-    // User logic: "Insert X at back. Then insert Y at back." 
-    // Queue: [..., X, Y]. 
-    // X is ahead of Y? No, X is effectively earlier in buffer, but both are at back. 
-    // Scheduling order (FIFO) picks front. So X is picked BEFORE Y. 
-    // Yes. Correct.
-    
-    // 3. Scheduling Decision (Select Process if CPU idle)
-    // If CPU is idle, pick from ReadyQueue
+    // Constraint check: Preempted RR process must be BEFORE new arrivals in scheduling order
+    // "Process goes to the back before a "new" process that has just arrived."
+    // Implementation:
+    // i. Quantum Expired -> preemptCPU() -> Pushes to back of ReadyQueue.
+    // ii. checkArrivals() -> Pushes new arrivals to back of ReadyQueue.
+    // Result in Queue: [..., Preempted, Arrived]
+    // Since we pick from Front, Preempted is ahead of Arrived. Correct.
     
     // Handling Preemption for SRTF
     if (algorithm == "SRTF" && !cpu.empty() && !readyQueue.empty()) {
@@ -181,13 +108,11 @@ std::string Scheduler::tick() {
             
         if (shortestInQueue->remainingTime < cpu[0].remainingTime) {
             log << "Process " << cpu[0].id << " preempted by " << shortestInQueue->id << ". ";
-            preemptCPU(true); // Put back to ready queue
-            // CPU is now empty, will pick up shortest below
+            preemptCPU(); 
         }
     }
     
-    // Handling Priority Preemption? (Usually standard Priority is non-preemptive unless specified "Preemptive Priority")
-    // Prompt says "Preemptive Priority: If algorithm == 'Priority', check if any process in the readyQueue has a higher priority... preempt."
+    // Handling Priority Preemption
     if (algorithm == "Priority" && !cpu.empty() && !readyQueue.empty()) {
          auto highestPriorityInQueue = std::min_element(readyQueue.begin(), readyQueue.end(), 
             [](const Process& a, const Process& b){
@@ -198,16 +123,13 @@ std::string Scheduler::tick() {
         // Check if queue process has strictly higher priority (lower value) than current CPU process
         if (highestPriorityInQueue->priority < cpu[0].priority) {
             log << "Process " << cpu[0].id << " preempted by " << highestPriorityInQueue->id << " (Priority " << highestPriorityInQueue->priority << " < " << cpu[0].priority << "). ";
-            preemptCPU(true); // To Back
+            preemptCPU(); 
         }
     }
     
+    // 3. Scheduling Decision
     if (cpu.empty() && !readyQueue.empty()) {
-        // Sort/Pick based on Algorithm
-        if (algorithm == "FCFS" || algorithm == "RR") {
-            // Pick value at front (already sorted by arrival / queue logic)
-            // No sorting needed.
-        } else if (algorithm == "SJF") {
+        if (algorithm == "SJF") {
             // Sort by Burst Time
             std::sort(readyQueue.begin(), readyQueue.end(), [](const Process& a, const Process& b){
                  if (a.burstTime != b.burstTime) return a.burstTime < b.burstTime;
@@ -220,19 +142,19 @@ std::string Scheduler::tick() {
                 return a.id < b.id;
             });
         } else if (algorithm == "Priority" || algorithm == "PriorityNP") {
-            // Sort by Priority
+            // Sort by Priority (Lower value = Higher Priority)
             std::sort(readyQueue.begin(), readyQueue.end(), [](const Process& a, const Process& b){
                 if (a.priority != b.priority) return a.priority < b.priority;
                 return a.id < b.id;
             });
         }
+        // FCFS and RR use default arrival order (no sort needed)
         
-        // Move front to CPU
+        // Move process from Ready Queue to CPU
         cpu.push_back(readyQueue.front());
         readyQueue.erase(readyQueue.begin());
         currentQuantumUsed = 0;
         
-        // Start Time check
         if (cpu[0].startTime == -1) {
             cpu[0].startTime = currentTime;
         }

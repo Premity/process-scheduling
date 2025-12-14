@@ -3,11 +3,8 @@
 
 #include <string>
 #include <vector>
-#include <deque>
 #include <iostream>
-#include <algorithm>
-#include <memory> 
-#include <optional> 
+#include <algorithm> 
 
 #include "json.hpp"
 
@@ -35,7 +32,7 @@ public:
     void addProcess(int id, std::string name, int arrivalTime, int burstTime, int priority);
     void setAlgorithm(std::string algo); 
     void setTimeQuantum(int q);
-    void setAging(bool enabled); // Re-added
+    void setAging(bool enabled);
     
     std::string tick();
 
@@ -44,8 +41,8 @@ public:
 
 private:
     std::string algorithm = "FCFS";
-    bool agingEnabled = true; // Default
-    int timeQuantum = 2; 
+    bool agingEnabled = false;
+    int timeQuantum = 2;
     int currentTime = 0;
     
     std::vector<Process> jobPool; 
@@ -59,7 +56,7 @@ private:
     
     void checkArrivals();
     // Helper to move from cpu back to ready queue
-    void preemptCPU(bool toBackOfQueue = true);
+    void preemptCPU();
 };
 
 #endif
