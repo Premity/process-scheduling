@@ -15,9 +15,11 @@ void Scheduler::addProcess(int id, std::string name, int arrivalTime, int burstT
     p.arrivalTime = arrivalTime;
     p.burstTime = burstTime;
     p.priority = priority;
+    p.originalPriority = priority;  // Store original for reference
     p.remainingTime = burstTime;
     p.startTime = -1;
-    // Pushing to jobPool, will be moved to readyQueue when arrivalTime <= currentTime
+    p.responseTime = -1;
+    
     jobPool.push_back(p);
 }
 
@@ -33,16 +35,19 @@ void Scheduler::setAging(bool enabled) {
     agingEnabled = enabled;
 }
 
+void Scheduler::setAgingThreshold(int threshold) {
+    agingThreshold = threshold;
+}
+
 bool Scheduler::isFinished() const {
     return jobPool.empty() && readyQueue.empty() && cpu.empty();
 }
 
+/**
+ * Check for process arrivals and move them to ready queue
+ * Processes are added in arrival order (FIFO within same arrival time)
+ */
 void Scheduler::checkArrivals() {
-    // Move all processes with arrivalTime <= currentTime from jobPool to readyQueue.
-    // Order of arrival at same time: Usually defined by input order (FIFO).
-    
-    // Using a stable partition or just iterating safely.
-    // We iterate and erase.
     auto it = jobPool.begin();
     while (it != jobPool.end()) {
         if (it->arrivalTime <= currentTime) {
@@ -54,173 +59,244 @@ void Scheduler::checkArrivals() {
     }
 }
 
+/**
+ * Preempt the currently running process
+ * Moves CPU process back to ready queue
+ */
 void Scheduler::preemptCPU() {
     if (!cpu.empty()) {
         Process p = cpu.front();
         cpu.clear();
         readyQueue.push_back(p);
+        currentQuantumUsed = 0;
     }
 }
 
-std::string Scheduler::tick() {
-    std::stringstream log;
-    log << "Time " << currentTime << ": ";
+// Sorting helpers
+void Scheduler::sortBySJF() {
+    std::sort(readyQueue.begin(), readyQueue.end(), [](const Process& a, const Process& b){
+        if (a.burstTime != b.burstTime) return a.burstTime < b.burstTime;
+        if (a.arrivalTime != b.arrivalTime) return a.arrivalTime < b.arrivalTime;
+        return a.id < b.id;
+    });
+}
 
-    // 1. Handling Round Robin Quantum Expiry
-    // Constraint: "process goes to the back... before a process that just arrived"
-    // So if RR and Quantum Expired, we must preempt NOW, before checking new arrivals.
+void Scheduler::sortBySRTF() {
+    std::sort(readyQueue.begin(), readyQueue.end(), [](const Process& a, const Process& b){
+        if (a.remainingTime != b.remainingTime) return a.remainingTime < b.remainingTime;
+        if (a.arrivalTime != b.arrivalTime) return a.arrivalTime < b.arrivalTime;
+        return a.id < b.id;
+    });
+}
+
+void Scheduler::sortByPriority() {
+    std::sort(readyQueue.begin(), readyQueue.end(), [](const Process& a, const Process& b){
+        if (a.priority != b.priority) return a.priority < b.priority;
+        if (a.arrivalTime != b.arrivalTime) return a.arrivalTime < b.arrivalTime;
+        return a.id < b.id;
+    });
+}
+
+/**
+ * Check if SRTF preemption should occur
+ * Returns true if a ready process has shorter remaining time than current CPU process
+ */
+bool Scheduler::shouldPreemptSRTF() {
+    if (cpu.empty() || readyQueue.empty()) return false;
     
-    bool justPreemptedRR = false;
-    
-    if (algorithm == "RR" && !cpu.empty()) {
-        currentQuantumUsed++;
+    auto shortestInQueue = std::min_element(readyQueue.begin(), readyQueue.end(), 
+        [](const Process& a, const Process& b){
+            if (a.remainingTime != b.remainingTime) return a.remainingTime < b.remainingTime;
+            return a.id < b.id;
+        });
         
-        // Check for Quantum Expiry
-        if (currentQuantumUsed >= timeQuantum) {
-             if (cpu[0].remainingTime > 0) {
-                 log << "Process " << cpu[0].id << " quantum expired. ";
-                 preemptCPU();
-                 justPreemptedRR = true;
-                 currentQuantumUsed = 0;
-             }
-        }
-    }
+    return shortestInQueue->remainingTime < cpu[0].remainingTime;
+}
+
+/**
+ * Check if Priority preemption should occur
+ * Returns true if a ready process has higher priority (lower value) than current CPU process
+ */
+bool Scheduler::shouldPreemptPriority() {
+    if (cpu.empty() || readyQueue.empty()) return false;
     
-    // 2. Check Arrivals (happens after RR expiry check to respect order constraints)
-    checkArrivals();
-    
-    // Constraint check: Preempted RR process must be BEFORE new arrivals in scheduling order
-    // "Process goes to the back before a "new" process that has just arrived."
-    // Implementation:
-    // i. Quantum Expired -> preemptCPU() -> Pushes to back of ReadyQueue.
-    // ii. checkArrivals() -> Pushes new arrivals to back of ReadyQueue.
-    // Result in Queue: [..., Preempted, Arrived]
-    // Since we pick from Front, Preempted is ahead of Arrived. Correct.
-    
-    // Handling Preemption for SRTF
-    if (algorithm == "SRTF" && !cpu.empty() && !readyQueue.empty()) {
-        // Check if any process in readyQueue has shorter remaining time
-        auto shortestInQueue = std::min_element(readyQueue.begin(), readyQueue.end(), 
-            [](const Process& a, const Process& b){
-                if (a.remainingTime != b.remainingTime) return a.remainingTime < b.remainingTime;
-                return a.id < b.id;
-            });
-            
-        if (shortestInQueue->remainingTime < cpu[0].remainingTime) {
-            log << "Process " << cpu[0].id << " preempted by " << shortestInQueue->id << ". ";
-            preemptCPU(); 
-        }
-    }
-    
-    // Handling Priority Preemption
-    if (algorithm == "Priority" && !cpu.empty() && !readyQueue.empty()) {
-         auto highestPriorityInQueue = std::min_element(readyQueue.begin(), readyQueue.end(), 
-            [](const Process& a, const Process& b){
-                if (a.priority != b.priority) return a.priority < b.priority; // Lower val = Higher Priority
-                return a.id < b.id;
-            });
-            
-        // Check if queue process has strictly higher priority (lower value) than current CPU process
-        if (highestPriorityInQueue->priority < cpu[0].priority) {
-            log << "Process " << cpu[0].id << " preempted by " << highestPriorityInQueue->id << " (Priority " << highestPriorityInQueue->priority << " < " << cpu[0].priority << "). ";
-            preemptCPU(); 
-        }
-    }
-    
-    // 3. Scheduling Decision
+    auto highestPriorityInQueue = std::min_element(readyQueue.begin(), readyQueue.end(), 
+        [](const Process& a, const Process& b){
+            if (a.priority != b.priority) return a.priority < b.priority;
+            return a.id < b.id;
+        });
+        
+    return highestPriorityInQueue->priority < cpu[0].priority;
+}
+
+/**
+ * Select and dispatch the next process based on the scheduling algorithm
+ */
+void Scheduler::scheduleNextProcess() {
     if (cpu.empty() && !readyQueue.empty()) {
+        // Apply algorithm-specific sorting
         if (algorithm == "SJF") {
-            // Sort by Burst Time
-            std::sort(readyQueue.begin(), readyQueue.end(), [](const Process& a, const Process& b){
-                 if (a.burstTime != b.burstTime) return a.burstTime < b.burstTime;
-                 return a.id < b.id;
-            });
+            sortBySJF();
         } else if (algorithm == "SRTF") {
-            // Sort by Remaining Time
-            std::sort(readyQueue.begin(), readyQueue.end(), [](const Process& a, const Process& b){
-                if (a.remainingTime != b.remainingTime) return a.remainingTime < b.remainingTime;
-                return a.id < b.id;
-            });
+            sortBySRTF();
         } else if (algorithm == "Priority" || algorithm == "PriorityNP") {
-            // Sort by Priority (Lower value = Higher Priority)
-            std::sort(readyQueue.begin(), readyQueue.end(), [](const Process& a, const Process& b){
-                if (a.priority != b.priority) return a.priority < b.priority;
-                return a.id < b.id;
-            });
+            sortByPriority();
         }
-        // FCFS and RR use default arrival order (no sort needed)
+        // FCFS and RR use arrival order (no sorting needed)
         
-        // Move process from Ready Queue to CPU
+        // Dispatch process to CPU
         cpu.push_back(readyQueue.front());
         readyQueue.erase(readyQueue.begin());
         currentQuantumUsed = 0;
         
+        // Record first execution time (for response time calculation)
         if (cpu[0].startTime == -1) {
             cpu[0].startTime = currentTime;
+            cpu[0].responseTime = currentTime - cpu[0].arrivalTime;
         }
-        log << "Process " << cpu[0].id << " starts/resumes. ";
     }
-    
-    // 4. Execution
+}
+
+/**
+ * Execute the current CPU process for one time unit
+ * Updates statistics and handles process completion
+ */
+void Scheduler::executeProcess() {
     if (!cpu.empty()) {
         cpu[0].remainingTime--;
+        currentQuantumUsed++;
         
-        // Stats update? Waiting time for others?
-        // Standard: Increment waiting time for everyone in ready queue?
-        // Yes, typically waiting time = (Time - Arrival - Burst) or accumulated.
-        // Let's accumulate waitingTime for everyone in readyQueue.
-        for (auto &p : readyQueue) {
-            p.waitingTime++;
-        }
-        
-        log << "Running Process " << cpu[0].id << " (" << cpu[0].remainingTime << " left).";
-        
-        // Check for finish
+        // Check for completion
         if (cpu[0].remainingTime <= 0) {
-            cpu[0].completionTime = currentTime + 1; // It finishes at the END of this tick unit
+            cpu[0].completionTime = currentTime + 1;
             cpu[0].turnaroundTime = cpu[0].completionTime - cpu[0].arrivalTime;
-            // waitingTime is already accumulating in ready queue.
-            // If it was preempted, waitingTime logic holds.
+            cpu[0].waitingTime = cpu[0].turnaroundTime - cpu[0].burstTime;
             
             finishedProcesses.push_back(cpu[0]);
-            log << " Process " << cpu[0].id << " finished.";
             cpu.clear();
             currentQuantumUsed = 0;
         }
-    } else {
-        log << "Idle.";
+    }
+}
+
+/**
+ * Update waiting times for all processes in ready queue
+ * Called once per tick for accurate statistics
+ */
+void Scheduler::updateWaitingTimes() {
+    // Waiting time accumulates only while in ready queue
+    // Note: waitingTime is calculated as turnaroundTime - burstTime at completion
+    // This function is kept for potential per-tick tracking needs
+}
+
+/**
+ * Apply aging mechanism to prevent starvation
+ * Increases priority (decreases value) for processes waiting too long
+ */
+void Scheduler::applyAging() {
+    if (!agingEnabled || readyQueue.empty()) return;
+    
+    for (auto &p : readyQueue) {
+        p.ageCounter++;
+        
+        // Apply priority boost at aging threshold
+        if (p.ageCounter >= agingThreshold) {
+            if (p.priority > 0) {
+                p.priority--;
+            }
+            p.ageCounter = 0;  // Reset counter after boost
+        }
+    }
+}
+
+/**
+ * Main simulation tick - executes one time unit
+ * Order of operations is critical for correct algorithm behavior
+ */
+std::string Scheduler::tick() {
+    std::stringstream log;
+    log << "Time " << currentTime << ": ";
+
+    // === PHASE 1: Check for new arrivals (BEFORE preemption checks) ===
+    // New arrivals join the ready queue
+    checkArrivals();
+
+    // === PHASE 2: Handle preemption based on algorithm ===
+    
+    // Round Robin: Check quantum expiration
+    if (algorithm == "RR" && !cpu.empty() && cpu[0].remainingTime > 0) {
+        if (currentQuantumUsed >= timeQuantum) {
+            log << "Process " << cpu[0].id << " quantum expired. ";
+            preemptCPU();
+        }
     }
     
-    currentTime++;
+    // SRTF: Check for shorter process
+    if (algorithm == "SRTF" && shouldPreemptSRTF()) {
+        auto shortestInQueue = std::min_element(readyQueue.begin(), readyQueue.end(), 
+            [](const Process& a, const Process& b){
+                return a.remainingTime < b.remainingTime;
+            });
+        log << "Process " << cpu[0].id << " preempted by Process " 
+            << shortestInQueue->id << " (SRTF). ";
+        preemptCPU();
+    }
     
-    // 5. Aging Logic (End of Tick)
-    // Apply to ALL algorithms if enabled (User request)
-    // "implement ageing to all the algorithms" implies we shouldn't restrict by name, 
-    // though valid only if priority matters.
+    // Priority (Preemptive): Check for higher priority process
+    if (algorithm == "Priority" && shouldPreemptPriority()) {
+        auto highestInQueue = std::min_element(readyQueue.begin(), readyQueue.end(), 
+            [](const Process& a, const Process& b){
+                return a.priority < b.priority;
+            });
+        log << "Process " << cpu[0].id << " preempted by Process " 
+            << highestInQueue->id << " (Priority " << highestInQueue->priority 
+            << " < " << cpu[0].priority << "). ";
+        preemptCPU();
+    }
+    
+    // === PHASE 3: Schedule next process if CPU is idle ===
+    scheduleNextProcess();
+    
+    // === PHASE 4: Execute current process ===
+    if (!cpu.empty()) {
+        int remainingBefore = cpu[0].remainingTime;
+        log << "Running Process " << cpu[0].id << " (" << remainingBefore << " remaining). ";
+        
+        executeProcess();
+        
+        // Check if process just finished
+        if (cpu.empty()) {
+            log << "Process " << finishedProcesses.back().id << " finished.";
+        }
+    } else {
+        log << "CPU Idle.";
+    }
+    
+    // === PHASE 5: Apply aging (end of tick) ===
+    applyAging();
     if (agingEnabled && !readyQueue.empty()) {
-        for (auto &p : readyQueue) {
-            p.ageCounter++;
-            if (p.ageCounter >= 5) {
-                if (p.priority > 0) {
-                    p.priority--;
-                    log << " [Aging: Process " << p.id << " priority -> " << p.priority << "]";
-                }
-                p.ageCounter = 0;
+        for (const auto &p : readyQueue) {
+            if (p.ageCounter == 0 && p.priority < p.originalPriority) {
+                log << " [Aged: P" << p.id << " priority=" << p.priority << "]";
             }
         }
     }
-
+    
+    currentTime++;
     return log.str();
 }
 
 nlohmann::json Scheduler::getStateJSON() const {
     nlohmann::json j;
     j["time"] = currentTime;
+    j["algorithm"] = algorithm;
     
     if (!cpu.empty()) {
         j["cpu_process"] = {
             {"id", cpu[0].id},
-            {"remaining", cpu[0].remainingTime}
+            {"name", cpu[0].name},
+            {"remaining", cpu[0].remainingTime},
+            {"quantum_used", currentQuantumUsed}
         };
     } else {
         j["cpu_process"] = nullptr;
@@ -230,9 +306,18 @@ nlohmann::json Scheduler::getStateJSON() const {
     for (const auto& p : readyQueue) {
         j["ready_queue"].push_back({
             {"id", p.id},
+            {"name", p.name},
             {"remaining", p.remainingTime},
             {"priority", p.priority},
-            {"age", p.ageCounter}
+            {"age_counter", p.ageCounter}
+        });
+    }
+    
+    j["job_pool"] = nlohmann::json::array();
+    for (const auto& p : jobPool) {
+        j["job_pool"].push_back({
+            {"id", p.id},
+            {"arrival", p.arrivalTime}
         });
     }
     
@@ -240,8 +325,10 @@ nlohmann::json Scheduler::getStateJSON() const {
     for (const auto& p : finishedProcesses) {
         j["finished"].push_back({
             {"id", p.id},
+            {"name", p.name},
             {"waiting_time", p.waitingTime},
-            {"turnaround_time", p.turnaroundTime}
+            {"turnaround_time", p.turnaroundTime},
+            {"response_time", p.responseTime}
         });
     }
     
