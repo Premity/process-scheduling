@@ -110,11 +110,11 @@ TestResult runTest(std::string algo, std::string title, int quantum,
     
     for (auto& p : finished) {
         if (verbose) {
-            std::cout << std::left << std::setw(6) << p["id"] 
-                      << std::setw(20) << p["name"]
-                      << std::setw(12) << p["response_time"]
-                      << std::setw(12) << p["waiting_time"]
-                      << std::setw(15) << p["turnaround_time"] << "\n";
+            std::cout << std::left << std::setw(6) << (int)p["id"] 
+                      << std::setw(20) << (std::string)p["name"]
+                      << std::setw(12) << (int)p["response_time"]
+                      << std::setw(12) << (int)p["waiting_time"]
+                      << std::setw(15) << (int)p["turnaround_time"] << "\n";
         }
         
         totalWait += (double)p["waiting_time"];
