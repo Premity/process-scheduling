@@ -260,6 +260,10 @@ std::string Scheduler::tick() {
     
     // === PHASE 4: Execute current process ===
     if (!cpu.empty()) {
+        // Track what's running BEFORE execution (for accurate Gantt display)
+        lastExecutedName = cpu[0].name;
+        lastExecutedId = cpu[0].id;
+        
         int remainingBefore = cpu[0].remainingTime;
         log << "Running Process " << cpu[0].id << " (" << remainingBefore << " remaining). ";
         
@@ -271,6 +275,8 @@ std::string Scheduler::tick() {
             log << "Process " << finishedProcesses.back().id << " finished.";
         }
     } else {
+        lastExecutedName = "";
+        lastExecutedId = -1;
         log << "CPU Idle.";
     }
     
@@ -302,6 +308,16 @@ nlohmann::json Scheduler::getStateJSON() const {
         };
     } else {
         j["cpu_process"] = nullptr;
+    }
+    
+    // Include what executed THIS tick (for Gantt chart accuracy)
+    if (lastExecutedId != -1) {
+        j["last_executed"] = {
+            {"id", lastExecutedId},
+            {"name", lastExecutedName}
+        };
+    } else {
+        j["last_executed"] = nullptr;
     }
     
     j["ready_queue"] = nlohmann::json::array();

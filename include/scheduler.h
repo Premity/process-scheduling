@@ -68,7 +68,11 @@ private:
     
     // CPU state (vector of size 0 or 1 for safe access)
     std::vector<Process> cpu; 
-    int currentQuantumUsed = 0; 
+    int currentQuantumUsed = 0;
+    
+    // Track what executed this tick (for accurate Gantt display)
+    std::string lastExecutedName = "";
+    int lastExecutedId = -1; 
     
     // Helper methods
     void checkArrivals();              // Move arrived processes to ready queue

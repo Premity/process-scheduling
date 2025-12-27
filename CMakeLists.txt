@@ -18,8 +18,11 @@ if(EMSCRIPTEN)
     )
     target_link_libraries(scheduler_wasm PRIVATE scheduler_lib)
     
-    # Optional: Set output file extension to .html or .js if desired, usually helpful for emscripten
-    # set_target_properties(scheduler_wasm PROPERTIES SUFFIX ".html")
+    # Emscripten binding flags
+    set_target_properties(scheduler_wasm PROPERTIES
+        LINK_FLAGS "--bind -s MODULARIZE=0 -s EXPORT_ES6=0 -s ALLOW_MEMORY_GROWTH=1"
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/www"
+    )
 else()
     message(STATUS "Skipping scheduler_wasm target (EMSCRIPTEN not defined)")
 endif()

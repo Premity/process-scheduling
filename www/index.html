@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPU Scheduler Simulator</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CPU Scheduler Simulator</h1>
+            <p class="subtitle">Interactive Process Scheduling Visualization</p>
+        </header>
+
+        <!-- Controls Section -->
+        <section class="controls-container">
+            <div class="input-group">
+                <h3>Add Process</h3>
+                <div class="input-row">
+                    <div class="input-field">
+                        <label for="processName">Name</label>
+                        <input type="text" id="processName" placeholder="P1">
+                    </div>
+                    <div class="input-field">
+                        <label for="arrivalTime">Arrival</label>
+                        <input type="number" id="arrivalTime" value="0" min="0">
+                    </div>
+                    <div class="input-field">
+                        <label for="burstTime">Burst</label>
+                        <input type="number" id="burstTime" value="5" min="1">
+                    </div>
+                    <div class="input-field">
+                        <label for="priority">Priority</label>
+                        <input type="number" id="priority" value="0" min="0">
+                    </div>
+                </div>
+                <div class="button-row">
+                    <button id="addProcessBtn" class="btn-primary">➕ Add Process</button>
+                    <button id="loadCsvBtn" class="btn-secondary">📁 Load CSV</button>
+                    <input type="file" id="csvFileInput" accept=".csv" hidden>
+                </div>
+            </div>
+
+            <div class="settings-group">
+                <h3>Algorithm Settings</h3>
+                <div class="settings-row">
+                    <div class="input-field">
+                        <label for="algorithmSelect">Algorithm</label>
+                        <select id="algorithmSelect">
+                            <option value="FCFS">FCFS</option>
+                            <option value="SJF">SJF</option>
+                            <option value="SRTF">SRTF</option>
+                            <option value="RR">Round Robin</option>
+                            <option value="Priority">Priority (Preemptive)</option>
+                            <option value="PriorityNP">Priority (Non-Preemptive)</option>
+                        </select>
+                    </div>
+                    <div class="input-field" id="quantumContainer">
+                        <label for="timeQuantum">Time Quantum</label>
+                        <input type="number" id="timeQuantum" value="2" min="1">
+                    </div>
+                    <div class="checkbox-field">
+                        <input type="checkbox" id="enableAging" checked>
+                        <label for="enableAging">Enable Aging</label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Process List -->
+        <section class="process-list-container">
+            <h3>Process Queue <span id="processCount">(0 processes)</span></h3>
+            <div id="processList" class="process-list"></div>
+        </section>
+
+        <!-- Simulation Section -->
+        <section class="simulation-container">
+            <div class="dashboard">
+                <div class="dashboard-item">
+                    <span class="label">Current Time</span>
+                    <span id="currentTime" class="value">0</span>
+                </div>
+                <div class="dashboard-item cpu-box" id="cpuBox">
+                    <span class="label">CPU</span>
+                    <div id="cpuStatus" class="cpu-status">
+                        <span class="idle">IDLE</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ready-queue-container">
+                <h4>Ready Queue</h4>
+                <div id="readyQueue" class="ready-queue"></div>
+            </div>
+
+            <div class="gantt-container">
+                <h4>Gantt Chart</h4>
+                <div id="ganttChart" class="gantt-chart"></div>
+            </div>
+
+            <div class="playback-controls">
+                <button id="stepBtn" class="btn-control">⏭️ Step</button>
+                <button id="playBtn" class="btn-control">▶️ Play</button>
+                <button id="pauseBtn" class="btn-control" disabled>⏸️ Pause</button>
+                <button id="resetBtn" class="btn-control btn-danger">🔄 Reset</button>
+                <div class="speed-control">
+                    <label for="speedSlider">Speed:</label>
+                    <input type="range" id="speedSlider" min="50" max="1000" value="500">
+                </div>
+            </div>
+        </section>
+
+        <!-- Results Section (Hidden until simulation ends) -->
+        <section id="resultsContainer" class="results-container hidden">
+            <h3>Simulation Results</h3>
+            <div class="stats-summary">
+                <div class="stat-item">
+                    <span class="stat-label">Avg Waiting Time</span>
+                    <span id="avgWaitingTime" class="stat-value">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Avg Turnaround Time</span>
+                    <span id="avgTurnaroundTime" class="stat-value">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Avg Response Time</span>
+                    <span id="avgResponseTime" class="stat-value">-</span>
+                </div>
+            </div>
+            <table id="resultsTable" class="results-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Waiting</th>
+                        <th>Turnaround</th>
+                        <th>Response</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </section>
+
+        <!-- Log Section -->
+        <section class="log-container">
+            <h4>Execution Log</h4>
+            <div id="executionLog" class="execution-log"></div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        var Module = {
+            onRuntimeInitialized: function() {
+                console.log("WASM Runtime Initialized");
+                if (window.initializeApp) window.initializeApp();
+            }
+        };
+    </script>
+    <script src="scheduler_wasm.js"></script>
+</body>
+</html>
