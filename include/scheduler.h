@@ -44,7 +44,8 @@ public:
     void setAlgorithm(std::string algo); 
     void setTimeQuantum(int q);
     void setAging(bool enabled);
-    void setAgingThreshold(int threshold);  // Configure aging interval
+    void setAgingThreshold(int threshold);   // How many ticks before boost
+    void setAgingBoostAmount(int amount);    // How much to boost priority
     
     // Simulation control
     std::string tick();  // Execute one time unit
@@ -69,10 +70,11 @@ private:
     // CPU state (vector of size 0 or 1 for safe access)
     std::vector<Process> cpu; 
     int currentQuantumUsed = 0;
+    int agingBoostAmount = 1;    // How much to decrease priority value per boost
     
-    // Track what executed this tick (for accurate Gantt display)
-    std::string lastExecutedName = "";
-    int lastExecutedId = -1; 
+    // Track what executed this tick (for Gantt)
+    int lastExecutedId = -1;
+    std::string lastExecutedName = ""; 
     
     // Helper methods
     void checkArrivals();              // Move arrived processes to ready queue

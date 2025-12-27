@@ -39,6 +39,10 @@ void Scheduler::setAgingThreshold(int threshold) {
     agingThreshold = threshold;
 }
 
+void Scheduler::setAgingBoostAmount(int amount) {
+    agingBoostAmount = amount;
+}
+
 bool Scheduler::isFinished() const {
     return jobPool.empty() && readyQueue.empty() && cpu.empty();
 }
@@ -202,9 +206,8 @@ void Scheduler::applyAging() {
         
         // Apply priority boost at aging threshold
         if (p.ageCounter >= agingThreshold) {
-            if (p.priority > 0) {
-                p.priority--;
-            }
+            // Decrease priority value by agingBoostAmount (lower value = higher priority)
+            p.priority = std::max(0, p.priority - agingBoostAmount);
             p.ageCounter = 0;  // Reset counter after boost
         }
     }

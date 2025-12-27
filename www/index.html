@@ -9,73 +9,97 @@
 <body>
     <div class="container">
         <header>
-            <h1>CPU Scheduler Simulator</h1>
-            <p class="subtitle">Interactive Process Scheduling Visualization</p>
+            <div class="header-content">
+                <h1>CPU Scheduler Simulator</h1>
+                <p class="subtitle">Interactive Process Scheduling Visualization</p>
+            </div>
+            <button class="theme-toggle" id="themeToggle" aria-label="Toggle Dark Mode">
+                <span class="light-icon">☀️</span>
+                <span class="dark-icon">🌙</span>
+            </button>
         </header>
 
-        <!-- Controls Section -->
-        <section class="controls-container">
-            <div class="input-group">
-                <h3>Add Process</h3>
-                <div class="input-row">
-                    <div class="input-field">
-                        <label for="processName">Name</label>
-                        <input type="text" id="processName" placeholder="P1">
-                    </div>
-                    <div class="input-field">
-                        <label for="arrivalTime">Arrival</label>
-                        <input type="number" id="arrivalTime" value="0" min="0">
-                    </div>
-                    <div class="input-field">
-                        <label for="burstTime">Burst</label>
-                        <input type="number" id="burstTime" value="5" min="1">
-                    </div>
-                    <div class="input-field">
-                        <label for="priority">Priority</label>
-                        <input type="number" id="priority" value="0" min="0">
-                    </div>
+        <!-- Section 1: Algorithm Settings -->
+        <section class="settings-container">
+            <h3>Algorithm Settings</h3>
+            <div class="settings-row">
+                <div class="input-field">
+                    <label for="algorithmSelect">Algorithm</label>
+                    <select id="algorithmSelect">
+                        <option value="FCFS">FCFS</option>
+                        <option value="SJF">SJF</option>
+                        <option value="SRTF">SRTF</option>
+                        <option value="RR">Round Robin</option>
+                        <option value="Priority">Priority (Preemptive)</option>
+                        <option value="PriorityNP">Priority (Non-Preemptive)</option>
+                    </select>
                 </div>
-                <div class="button-row">
-                    <button id="addProcessBtn" class="btn-primary">➕ Add Process</button>
-                    <button id="loadCsvBtn" class="btn-secondary">📁 Load CSV</button>
-                    <input type="file" id="csvFileInput" accept=".csv" hidden>
+                <div class="input-field" id="quantumContainer">
+                    <label for="timeQuantum">Time Quantum</label>
+                    <input type="number" id="timeQuantum" value="2" min="1">
                 </div>
-            </div>
-
-            <div class="settings-group">
-                <h3>Algorithm Settings</h3>
-                <div class="settings-row">
-                    <div class="input-field">
-                        <label for="algorithmSelect">Algorithm</label>
-                        <select id="algorithmSelect">
-                            <option value="FCFS">FCFS</option>
-                            <option value="SJF">SJF</option>
-                            <option value="SRTF">SRTF</option>
-                            <option value="RR">Round Robin</option>
-                            <option value="Priority">Priority (Preemptive)</option>
-                            <option value="PriorityNP">Priority (Non-Preemptive)</option>
-                        </select>
+                <div class="checkbox-field-aligned" id="agingContainer">
+                    <input type="checkbox" id="enableAging">
+                    <label for="enableAging">Enable Aging</label>
+                </div>
+                <div class="aging-params" id="agingParams">
+                    <div class="input-field small">
+                        <label for="agingBoostAmount">Boost</label>
+                        <input type="number" id="agingBoostAmount" value="1" min="1" max="10">
                     </div>
-                    <div class="input-field" id="quantumContainer">
-                        <label for="timeQuantum">Time Quantum</label>
-                        <input type="number" id="timeQuantum" value="2" min="1">
-                    </div>
-                    <div class="checkbox-field">
-                        <input type="checkbox" id="enableAging" checked>
-                        <label for="enableAging">Enable Aging</label>
+                    <div class="input-field small">
+                        <label for="agingThreshold">Every N Ticks</label>
+                        <input type="number" id="agingThreshold" value="5" min="1" max="20">
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Process List -->
-        <section class="process-list-container">
+        <!-- Section 2: Process Input Table -->
+        <section class="process-input-container">
             <h3>Process Queue <span id="processCount">(0 processes)</span></h3>
-            <div id="processList" class="process-list"></div>
+            <div class="process-table-wrapper">
+                <table id="processTable" class="process-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Arrival</th>
+                            <th>Burst</th>
+                            <th class="priority-col">Priority</th>
+                            <th class="action-col"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="processTableBody">
+                    </tbody>
+                </table>
+            </div>
+            <div class="button-row">
+                <button id="addRowBtn" class="btn-primary">➕ Add Process</button>
+                <button id="loadCsvBtn" class="btn-secondary">📁 Load CSV</button>
+                <input type="file" id="csvFileInput" accept=".csv" hidden>
+            </div>
         </section>
 
-        <!-- Simulation Section -->
+        <!-- Section 3: Simulation Controls & Dashboard -->
         <section class="simulation-container">
+            <div class="sim-header">
+                <h3>Simulation</h3>
+                <div class="sim-controls-inline">
+                    <select id="algorithmSelectSim" class="sim-select">
+                        <option value="FCFS">FCFS</option>
+                        <option value="SJF">SJF</option>
+                        <option value="SRTF">SRTF</option>
+                        <option value="RR">Round Robin</option>
+                        <option value="Priority">Priority (Preemptive)</option>
+                        <option value="PriorityNP">Priority (Non-Preemptive)</option>
+                    </select>
+                    <div class="checkbox-field-inline" id="agingContainerSim">
+                        <input type="checkbox" id="enableAgingSim">
+                        <label for="enableAgingSim">Aging</label>
+                    </div>
+                </div>
+            </div>
+
             <div class="dashboard">
                 <div class="dashboard-item">
                     <span class="label">Current Time</span>
@@ -96,7 +120,10 @@
 
             <div class="gantt-container">
                 <h4>Gantt Chart</h4>
-                <div id="ganttChart" class="gantt-chart"></div>
+                <div class="gantt-wrapper">
+                    <div id="ganttChart" class="gantt-chart"></div>
+                    <div id="ganttAxis" class="gantt-axis"></div>
+                </div>
             </div>
 
             <div class="playback-controls">
@@ -111,38 +138,40 @@
             </div>
         </section>
 
-        <!-- Results Section (Hidden until simulation ends) -->
-        <section id="resultsContainer" class="results-container hidden">
-            <h3>Simulation Results</h3>
+        <!-- Section 4: Live Results Table -->
+        <section class="results-container">
+            <h3>Process Statistics</h3>
             <div class="stats-summary">
                 <div class="stat-item">
-                    <span class="stat-label">Avg Waiting Time</span>
+                    <span class="stat-label">Avg Waiting</span>
                     <span id="avgWaitingTime" class="stat-value">-</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Avg Turnaround Time</span>
+                    <span class="stat-label">Avg Turnaround</span>
                     <span id="avgTurnaroundTime" class="stat-value">-</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">Avg Response Time</span>
+                    <span class="stat-label">Avg Response</span>
                     <span id="avgResponseTime" class="stat-value">-</span>
                 </div>
             </div>
             <table id="resultsTable" class="results-table">
                 <thead>
                     <tr>
-                        <th>ID</th>
                         <th>Name</th>
+                        <th>Arrival</th>
+                        <th>Burst</th>
                         <th>Waiting</th>
+                        <th>Finish</th>
                         <th>Turnaround</th>
                         <th>Response</th>
                     </tr>
                 </thead>
-                <tbody></tbody>
+                <tbody id="resultsTableBody"></tbody>
             </table>
         </section>
 
-        <!-- Log Section -->
+        <!-- Section 5: Execution Log -->
         <section class="log-container">
             <h4>Execution Log</h4>
             <div id="executionLog" class="execution-log"></div>

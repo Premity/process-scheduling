@@ -18,6 +18,7 @@ EMSCRIPTEN_BINDINGS(scheduler_module) {
         .function("setTimeQuantum", &Scheduler::setTimeQuantum)
         .function("setAging", &Scheduler::setAging)
         .function("setAgingThreshold", &Scheduler::setAgingThreshold)
+        .function("setAgingBoostAmount", &Scheduler::setAgingBoostAmount)
         .function("tick", &Scheduler::tick)
         .function("isFinished", &Scheduler::isFinished)
         .function("getStateJSON", &getStateJSONString);

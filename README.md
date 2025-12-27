@@ -1,61 +1,96 @@
 # CPU Scheduler Simulator
 
-A comprehensive C++ implementation of CPU scheduling algorithms with support for multiple platforms and deployment targets.
+An interactive CPU scheduling simulator with a WebAssembly-powered web interface.
 
 [![C++17](https://img.shields.io/badge/C++-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
-[![CMake](https://img.shields.io/badge/CMake-3.10+-green.svg)](https://cmake.org/)
+[![WebAssembly](https://img.shields.io/badge/WebAssembly-Enabled-purple.svg)](https://webassembly.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Project Structure](#project-structure)
-- [Scheduling Algorithms](#scheduling-algorithms)
-- [Getting Started](#getting-started)
-- [Building the Project](#building-the-project)
-- [Testing](#testing)
-- [API Usage](#api-usage)
-- [Dependencies](#dependencies)
-
----
-
-## Overview
-
-This project provides a **discrete-time CPU scheduling simulator** that models various process scheduling algorithms used in operating systems.
-
-It is designed to be:
-
-- **Educational** – clear implementations of classic OS scheduling algorithms
-- **Portable** – targets native Linux, WebAssembly, and Windows
-- **Extensible** – easy to add new algorithms or modify existing ones
-- **Well-tested** – comprehensive test suite covering edge cases and stress scenarios
-
-The core `scheduler_lib` can be used as a standalone simulator or embedded as a library.
 
 ---
 
 ## Features
 
-### Currently Implemented
+- **Six Scheduling Algorithms**: FCFS, SJF, SRTF, Round Robin, Priority (Preemptive & Non-Preemptive)
+- **Aging Mechanism**: Configurable priority boost to prevent starvation
+- **Interactive Web UI**
+  - Real-time Gantt Chart
+  - Live Ready Queue visualization
+  - Process Statistics with color-coded states
+  - Light/Dark Mode Toggle
+  - Table-based process input
+- **Metrics**: Waiting Time, Turnaround Time, Response Time
 
-- **Six Scheduling Algorithms**
-  - FCFS
-  - SJF
-  - SRTF
-  - Round Robin
-  - Priority (Preemptive & Non-Preemptive)
-- **Aging Mechanism** to prevent starvation
-- **Metrics**
-  - Waiting Time
-  - Turnaround Time
-  - Response Time
-  - CPU Utilization
-- **Test Suite** (30+ tests)
-- **JSON State Export**
-- **Detailed Tick-by-Tick Logging**
+---
+
+## Quick Start
+
+### 🐧 Linux / macOS
+
+1.  **Dependencies**: Install `git`, `python3`, `cmake`, and `g++`.
+
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install git python3 cmake g++
+```
+2.  **Install Emscripten**:
+```bash
+    git clone https://github.com/emscripten-core/emsdk.git && cd emsdk
+    ./emsdk install latest && ./emsdk activate latest
+    source ./emsdk_env.sh
+    cd ..
+```
+3.  **Build**:
+```bash
+    git clone https://github.com/Premity/process-scheduling.git
+    cd process-scheduling
+    mkdir build && cd build
+    emcmake cmake .. && emmake make
+    cp scheduler_wasm.js scheduler_wasm.wasm ../www/
+```
+4.  **Run**:
+```bash
+    cd ..
+    g++ -std=c++17 src/server_main.cpp -o scheduler_server -I include -lpthread
+    ./scheduler_server
+```
+
+### 🪟 Windows (PowerShell)
+
+1.  **Prerequisites**:
+    *   Install [Git](https://git-scm.com/download/win)
+    *   Install [Python 3](https://www.python.org/downloads/)
+    *   Install [MinGW-w64](https://www.mingw-w64.org/) (ensure `g++` and `mingw32-make` are in PATH)
+    *   Install [CMake](https://cmake.org/download/)
+
+2.  **Install Emscripten**:
+```powershell
+    git clone https://github.com/emscripten-core/emsdk.git
+    cd emsdk
+    ./emsdk install latest
+    ./emsdk activate latest
+    ./emsdk_env.bat
+    cd ..
+```
+
+3.  **Build**:
+```powershell
+    git clone https://github.com/Premity/process-scheduling.git
+    cd process-scheduling
+    mkdir build; cd build
+    emcmake cmake -G "MinGW Makefiles" ..
+    emmake mingw32-make
+    copy scheduler_wasm.js ..\www\
+    copy scheduler_wasm.wasm ..\www\
+```
+
+4.  **Run**:
+```powershell
+    cd ..
+    # Compile server (linking ws2_32 for Windows sockets)
+    g++ -std=c++17 src/server_main.cpp -o scheduler_server.exe -I include -lws2_32 -static
+    .\scheduler_server.exe
+```
 
 ---
 
@@ -64,271 +99,53 @@ The core `scheduler_lib` can be used as a standalone simulator or embedded as a 
 ```
 .
 ├── include/
-│   ├── scheduler.h        # Core scheduler API and Process struct
-│   ├── json.hpp           # nlohmann/json (header-only)
-│   └── httplib.h          # HTTP utilities
+│   ├── scheduler.h       # Core scheduler API
+│   └── json.hpp          # nlohmann/json (header-only)
 ├── src/
 │   ├── scheduler.cpp     # Scheduler implementation
-│   ├── server_main.cpp   # Native server entry point
-│   └── wasm_main.cpp     # WebAssembly entry point
-├── tests/
-│   └── test_runner.cpp   # Comprehensive test suite
-├── cmake/
-│   └── mingw-w64-x86_64.cmake  # Windows toolchain
-├── www/                  # Web UI assets
+│   ├── wasm_main.cpp     # WebAssembly bindings
+│   └── server_main.cpp   # Native C++ static file server
+├── www/                  # Web UI (HTML, CSS, JS)
 ├── CMakeLists.txt
 └── README.md
-
-````
-
-### Key Components
-
-- **`scheduler.h`** – Scheduler API and PCB definition  
-- **`scheduler.cpp`** – Core simulation and algorithms  
-- **`test_runner.cpp`** – Automated testing framework  
-- **`server_main.cpp`** – REST API server  
-- **`wasm_main.cpp`** – WASM bindings  
+```
 
 ---
 
 ## Scheduling Algorithms
 
-### 1. FCFS (First-Come, First-Served)
-
-- **Type**: Non-Preemptive  
-- **Selection**: Earliest arrival  
-
-```cpp
-scheduler.setAlgorithm("FCFS");
-````
-
----
-
-### 2. SJF (Shortest Job First)
-
-* **Type**: Non-Preemptive
-* **Selection**: Shortest burst time
-
-```cpp
-scheduler.setAlgorithm("SJF");
-scheduler.setAging(true); // optional prevent starvation
-```
-
----
-
-### 3. SRTF (Shortest Remaining Time First)
-
-* **Type**: Preemptive
-* **Selection**: Shortest remaining time
-
-```cpp
-scheduler.setAlgorithm("SRTF");
-```
-
-**Preemption Logic**
-
-* Checked every tick
-* Current process preempted if a shorter job arrives
-
----
-
-### 4. Round Robin (RR)
-
-* **Type**: Preemptive
-* **Selection**: FCFS with time quantum
-
-```cpp
-scheduler.setAlgorithm("RR");
-scheduler.setTimeQuantum(3);
-```
-
-**Important Detail**
-
-> When a quantum expires, the process is placed **behind all processes that arrived during the same tick**.
-
----
-
-### 5. Priority
-
-* **Type**: Preemptive
-* **Selection**: Lower priority value = higher priority
-
-```cpp
-scheduler.setAlgorithm("Priority");
-scheduler.setAging(true);
-scheduler.setAgingThreshold(5);
-```
-
----
-
-### 6. PriorityNP
-
-* **Type**: Non-Preemptive
-
-```cpp
-scheduler.setAlgorithm("PriorityNP");
-scheduler.setAging(true);
-```
-
----
+| Algorithm | Type | Selection Criteria |
+|-----------|------|-------------------|
+| FCFS | Non-Preemptive | Earliest arrival |
+| SJF | Non-Preemptive | Shortest burst time |
+| SRTF | Preemptive | Shortest remaining time |
+| Round Robin | Preemptive | Time quantum rotation |
+| Priority | Preemptive | Lowest priority value |
+| PriorityNP | Non-Preemptive | Lowest priority value |
 
 ### Aging Mechanism
 
-**How it works**
-
-1. Each waiting process increments an age counter
-2. When threshold is reached, priority improves
-3. Counter resets after boost
+Prevents starvation by boosting priority of waiting processes:
 
 ```cpp
 scheduler.setAging(true);
-scheduler.setAgingThreshold(10);
-```
-
-Applies to: **SJF, SRTF, Priority, PriorityNP**
-
----
-
-## Getting Started
-
-### Prerequisites
-
-* C++17 compiler
-* CMake 3.10+
-* Git
-
-### Quick Start
-
-```bash
-git clone https://github.com/Premity/process-scheduling.git
-cd process-scheduling
-
-mkdir build && cd build
-cmake ..
-make
-
-./scheduler_test
+scheduler.setAgingThreshold(5);    // Boost every 5 ticks
+scheduler.setAgingBoostAmount(1);  // Decrease priority by 1
 ```
 
 ---
 
-## Building the Project
+## License
 
-### Native Linux Build
-
-```bash
-mkdir -p build
-cd build
-cmake ..
-make
-```
-
-**Outputs**
-
-* `scheduler_test`
-* `libscheduler.a`
+MIT License — see [LICENSE](LICENSE)
 
 ---
 
-### WebAssembly Build (Planned)
+## Author
 
-```bash
-emcmake cmake ..
-emmake make
-```
-
-Outputs:
-
-* `scheduler_wasm.js`
-* `scheduler_wasm.wasm`
-
----
-
-### Windows Cross-Compile
-
-```bash
-cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/mingw-w64-x86_64.cmake ..
-make
-```
-
----
-
-## Testing
-
-### Test Categories
-
-1. Basic functionality
-2. Simultaneous arrivals
-3. Preemption scenarios
-4. Round Robin variations
-5. Aging mechanism
-6. Edge cases
-7. Stress tests
-
-### Running Tests
-
-```bash
-./scheduler_test
-```
-
-### Adding a Custom Test
-
-```cpp
-std::vector<PData> myTestSet = {
-    {1, "ProcessA", 0, 10, 3},
-    {2, "ProcessB", 2, 5, 1},
-    {3, "ProcessC", 4, 8, 2}
-};
-```
-
----
-
-## API Usage
-
-### Example
-
-```cpp
-Scheduler scheduler;
-
-scheduler.setAlgorithm("RR");
-scheduler.setTimeQuantum(3);
-
-scheduler.addProcess(1, "P1", 0, 10, 5);
-scheduler.addProcess(2, "P2", 2, 5, 3);
-
-while (!scheduler.isFinished()) {
-    std::cout << scheduler.tick() << std::endl;
-}
-
-auto state = scheduler.getStateJSON();
-std::cout << state.dump(4) << std::endl;
-```
-
----
-
-## 🔧 Dependencies
-
-* C++17
-* CMake
-* nlohmann/json (MIT)
-* cpp-httplib
-* Emscripten
-* MinGW-w64
-
----
-
-## 📄 License
-
-MIT License — see `LICENSE`
-
----
-
-## 👤 Author
-
-**Mohammad Hamd Ashfaque**
+**Mohammad Hamd Ashfaque**  
 GitHub: [@Premity](https://github.com/Premity)
 
 ---
 
-**Last Updated**: 14th December 2025
-**Version**: 0.2.0
+**Version**: 1.0.0 | **Last Updated**: December 2025
