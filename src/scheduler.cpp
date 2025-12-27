@@ -171,6 +171,7 @@ void Scheduler::executeProcess() {
             cpu[0].completionTime = currentTime + 1;
             cpu[0].turnaroundTime = cpu[0].completionTime - cpu[0].arrivalTime;
             cpu[0].waitingTime = cpu[0].turnaroundTime - cpu[0].burstTime;
+            // overwrite waiting time with calculated value for redundancy
             
             finishedProcesses.push_back(cpu[0]);
             cpu.clear();
@@ -184,9 +185,9 @@ void Scheduler::executeProcess() {
  * Called once per tick for accurate statistics
  */
 void Scheduler::updateWaitingTimes() {
-    // Waiting time accumulates only while in ready queue
-    // Note: waitingTime is calculated as turnaroundTime - burstTime at completion
-    // This function is kept for potential per-tick tracking needs
+    for (auto& p : readyQueue) {
+        p.waitingTime++;
+    }
 }
 
 /**
@@ -263,6 +264,7 @@ std::string Scheduler::tick() {
         log << "Running Process " << cpu[0].id << " (" << remainingBefore << " remaining). ";
         
         executeProcess();
+        updateWaitingTimes(); // Update stats for waiting processes
         
         // Check if process just finished
         if (cpu.empty()) {
