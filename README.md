@@ -35,24 +35,24 @@ sudo apt install git python3 cmake g++
 ```
 2.  **Install Emscripten**:
 ```bash
-    git clone https://github.com/emscripten-core/emsdk.git && cd emsdk
-    ./emsdk install latest && ./emsdk activate latest
-    source ./emsdk_env.sh
-    cd ..
+git clone https://github.com/emscripten-core/emsdk.git && cd emsdk
+./emsdk install latest && ./emsdk activate latest
+source ./emsdk_env.sh
+cd ..
 ```
 3.  **Build**:
 ```bash
-    git clone https://github.com/Premity/process-scheduling.git
-    cd process-scheduling
-    mkdir build && cd build
-    emcmake cmake .. && emmake make
-    cp scheduler_wasm.js scheduler_wasm.wasm ../www/
+git clone https://github.com/Premity/process-scheduling.git
+cd process-scheduling
+mkdir build && cd build
+emcmake cmake .. && emmake make
+cp scheduler_wasm.js scheduler_wasm.wasm ../www/
 ```
 4.  **Run**:
 ```bash
-    cd ..
-    g++ -std=c++17 src/server_main.cpp -o scheduler_server -I include -lpthread
-    ./scheduler_server
+cd ..
+g++ -std=c++17 src/server_main.cpp -o scheduler_server -I include -lpthread
+./scheduler_server
 ```
 
 ### 🪟 Windows (PowerShell)
@@ -65,31 +65,31 @@ sudo apt install git python3 cmake g++
 
 2.  **Install Emscripten**:
 ```powershell
-    git clone https://github.com/emscripten-core/emsdk.git
-    cd emsdk
-    ./emsdk install latest
-    ./emsdk activate latest
-    ./emsdk_env.bat
-    cd ..
+git clone https://github.com/emscripten-core/emsdk.git
+cd emsdk
+./emsdk install latest
+./emsdk activate latest
+./emsdk_env.bat
+cd ..
 ```
 
 3.  **Build**:
 ```powershell
-    git clone https://github.com/Premity/process-scheduling.git
-    cd process-scheduling
-    mkdir build; cd build
-    emcmake cmake -G "MinGW Makefiles" ..
-    emmake mingw32-make
-    copy scheduler_wasm.js ..\www\
-    copy scheduler_wasm.wasm ..\www\
+git clone https://github.com/Premity/process-scheduling.git
+cd process-scheduling
+mkdir build; cd build
+emcmake cmake -G "MinGW Makefiles" ..
+emmake mingw32-make
+Copy scheduler_wasm.js ..\www\
+Copy scheduler_wasm.wasm ..\www\
 ```
 
 4.  **Run**:
 ```powershell
-    cd ..
-    # Compile server (linking ws2_32 for Windows sockets)
-    g++ -std=c++17 src/server_main.cpp -o scheduler_server.exe -I include -lws2_32 -static
-    .\scheduler_server.exe
+cd ..
+# Compile server (linking ws2_32 for Windows sockets)
+g++ -std=c++17 src/server_main.cpp -o scheduler_server.exe -I include -lws2_32 -static
+scheduler_server.exe
 ```
 
 ---
@@ -98,8 +98,10 @@ sudo apt install git python3 cmake g++
 
 ```
 .
+├── cmake/                # CMake configuration
 ├── include/
 │   ├── scheduler.h       # Core scheduler API
+│   ├── httplib.h         # cpp-httplib (header-only)
 │   └── json.hpp          # nlohmann/json (header-only)
 ├── src/
 │   ├── scheduler.cpp     # Scheduler implementation
@@ -107,6 +109,7 @@ sudo apt install git python3 cmake g++
 │   └── server_main.cpp   # Native C++ static file server
 ├── www/                  # Web UI (HTML, CSS, JS)
 ├── CMakeLists.txt
+├── LICENSE
 └── README.md
 ```
 
@@ -132,6 +135,16 @@ scheduler.setAging(true);
 scheduler.setAgingThreshold(5);    // Boost every 5 ticks
 scheduler.setAgingBoostAmount(1);  // Decrease priority by 1
 ```
+
+---
+
+## Dependencies
+
+- **C++17 Compiler** (GCC/Clang/MSVC)
+- **CMake 3.10+**
+- **Emscripten SDK** (for WebAssembly build)
+- **nlohmann/json** (included in `include/`)
+- **cpp-httplib** (included in `include/`)
 
 ---
 
